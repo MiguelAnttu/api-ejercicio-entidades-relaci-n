@@ -1,0 +1,165 @@
+### =====================================================================
+### Pruebas de la API "Justificar faltas" (cliente HTTP de IntelliJ)
+### Requisitos: API arrancada en el puerto 8080 y datos de docs/datos-prueba.sql cargados.
+### Con la base de datos recién creada: alumnos 1 (Carlos) y 2 (Lucía);
+### faltas 1 y 2 (Carlos, ayer), 3 (Carlos, hace 10 días) y 4 (Lucía, ayer).
+### Ejecutar en orden.
+### =====================================================================
+
+### 1. Resumen de la pantalla "Mis faltas" (GET) -> 200
+GET http://localhost:8080/api/faltas/resumen?idAlumno=1
+
+### 2. Faltas del alumno (GET) -> 200
+GET http://localhost:8080/api/faltas?idAlumno=1
+
+### 3. Solo las faltas pendientes de justificar (GET) -> 200
+GET http://localhost:8080/api/faltas?idAlumno=1&estado=SIN_JUSTIFICAR
+
+### 4. Justificar las dos faltas de ayer en una sola petición (POST) -> 201
+POST http://localhost:8080/api/justificaciones
+Content-Type: application/json
+
+{
+  "idAlumno": 1,
+  "idsFaltas": [1, 2],
+  "motivo": "CITA_MEDICA",
+  "descripcion": "Revisión en el centro de salud",
+  "documentoAdjunto": "volante-medico.pdf"
+}
+
+### 5. Las faltas 1 y 2 ya están EN_REVISION (GET) -> 200
+GET http://localhost:8080/api/faltas?idAlumno=1
+
+### 6. Historial de justificaciones del alumno (GET) -> 200
+GET http://localhost:8080/api/justificaciones?idAlumno=1
+
+### 7. Solo las pendientes (GET) -> 200
+GET http://localhost:8080/api/justificaciones?idAlumno=1&estado=PENDIENTE
+
+### 8. Una justificación concreta (GET) -> 200
+GET http://localhost:8080/api/justificaciones/1
+
+### 9. Corregir el motivo mientras está PENDIENTE (PUT) -> 200
+PUT http://localhost:8080/api/justificaciones/1
+Content-Type: application/json
+
+{
+  "motivo": "ENFERMEDAD",
+  "descripcion": "Fiebre y malestar general",
+  "documentoAdjunto": "informe-medico.pdf"
+}
+
+### 10. El tutor aprueba la justificación 1 (PUT) -> 200 (la falta 1 pasa a JUSTIFICADA)
+PUT http://localhost:8080/api/justificaciones/1/resolucion
+Content-Type: application/json
+
+{
+  "estado": "APROBADA",
+  "comentarioRevision": "Justificante correcto"
+}
+
+### 11. El tutor rechaza la justificación 2 (PUT) -> 200 (la falta 2 vuelve a SIN_JUSTIFICAR)
+PUT http://localhost:8080/api/justificaciones/2/resolucion
+Content-Type: application/json
+
+{
+  "estado": "RECHAZADA",
+  "comentarioRevision": "El justificante no corresponde a esa fecha"
+}
+
+### 12. Volver a justificar la falta 2 tras el rechazo (POST) -> 201
+POST http://localhost:8080/api/justificaciones
+Content-Type: application/json
+
+{
+  "idAlumno": 1,
+  "idsFaltas": [2],
+  "motivo": "OTRO",
+  "descripcion": "Adjunto el justificante correcto",
+  "documentoAdjunto": "justificante-correcto.pdf"
+}
+
+### 13. Retirar la nueva justificación (id 3) mientras está PENDIENTE (DELETE) -> 204
+DELETE http://localhost:8080/api/justificaciones/3
+
+### =====================================================================
+### Casos de error
+### =====================================================================
+
+### 14. Falta fuera de plazo (POST) -> 422 Plazo de Justificación Vencido
+POST http://localhost:8080/api/justificaciones
+Content-Type: application/json
+
+{
+  "idAlumno": 1,
+  "idsFaltas": [3],
+  "motivo": "ENFERMEDAD"
+}
+
+### 15. Falta ya justificada (POST) -> 409 Conflicto de Datos
+POST http://localhost:8080/api/justificaciones
+Content-Type: application/json
+
+{
+  "idAlumno": 1,
+  "idsFaltas": [1],
+  "motivo": "ENFERMEDAD"
+}
+
+### 16. Falta de otro alumno (POST) -> 400 Solicitud No Válida
+POST http://localhost:8080/api/justificaciones
+Content-Type: application/json
+
+{
+  "idAlumno": 1,
+  "idsFaltas": [4],
+  "motivo": "ENFERMEDAD"
+}
+
+### 17. Motivo OTRO sin descripción (POST) -> 400 Solicitud No Válida
+POST http://localhost:8080/api/justificaciones
+Content-Type: application/json
+
+{
+  "idAlumno": 1,
+  "idsFaltas": [2],
+  "motivo": "OTRO"
+}
+
+### 18. Motivo que no existe en el catálogo (POST) -> 400 Solicitud No Válida
+POST http://localhost:8080/api/justificaciones
+Content-Type: application/json
+
+{
+  "idAlumno": 1,
+  "idsFaltas": [2],
+  "motivo": "ME_DIO_PEREZA"
+}
+
+### 19. Falta inexistente (POST) -> 404 Recurso No Encontrado
+POST http://localhost:8080/api/justificaciones
+Content-Type: application/json
+
+{
+  "idAlumno": 1,
+  "idsFaltas": [999],
+  "motivo": "ENFERMEDAD"
+}
+
+### 20. Alumno inexistente (GET) -> 404 Recurso No Encontrado
+GET http://localhost:8080/api/faltas?idAlumno=999
+
+### 21. Filtro con un estado que no existe (GET) -> 400 Solicitud No Válida
+GET http://localhost:8080/api/faltas?idAlumno=1&estado=XYZ
+
+### 22. Retirar una justificación ya resuelta (DELETE) -> 409 Conflicto de Datos
+DELETE http://localhost:8080/api/justificaciones/1
+
+### 23. Resolver una justificación ya resuelta (PUT) -> 409 Conflicto de Datos
+PUT http://localhost:8080/api/justificaciones/1/resolucion
+Content-Type: application/json
+
+{
+  "estado": "RECHAZADA",
+  "comentarioRevision": "Cambio de opinión"
+}
