@@ -11,55 +11,52 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import java.net.URI;
 import java.time.Instant;
 
+/**
+ * Traduce las excepciones de la aplicación a respuestas HTTP con formato {@link ProblemDetail} (RFC 9457).
+ */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // Error 404 - Alumno, falta o justificación inexistente
+    /** Error 404 - Departamento, profesor, asignatura, estudiante o matrícula inexistente */
     @ExceptionHandler(RecursoNoEncontradoException.class)
     public ProblemDetail manejarRecursoNoEncontrado(RecursoNoEncontradoException ex) {
         return crearProblema(HttpStatus.NOT_FOUND, "Recurso No Encontrado", "not-found", ex.getMessage());
     }
 
-    // Error 400 - Datos de la petición no válidos (reglas de validación del servicio)
+    /** Error 400 - Datos de la petición no válidos (reglas de validación del servicio) */
     @ExceptionHandler(SolicitudInvalidaException.class)
     public ProblemDetail manejarSolicitudInvalida(SolicitudInvalidaException ex) {
         return crearProblema(HttpStatus.BAD_REQUEST, "Solicitud No Válida", "bad-request", ex.getMessage());
     }
 
-    // Error 409 - El estado actual de la falta o de la justificación no permite la operación
-    @ExceptionHandler(ConflictoJustificacionException.class)
-    public ProblemDetail manejarConflicto(ConflictoJustificacionException ex) {
+    /** Error 409 - Dato duplicado (código, DNI, matrícula) o registro con dependencias que impiden borrarlo */
+    @ExceptionHandler(ConflictoDatosException.class)
+    public ProblemDetail manejarConflicto(ConflictoDatosException ex) {
         return crearProblema(HttpStatus.CONFLICT, "Conflicto de Datos", "conflict", ex.getMessage());
     }
 
-    // Error 422 - Plazo para justificar vencido
-    @ExceptionHandler(PlazoJustificacionVencidoException.class)
-    public ProblemDetail manejarPlazoVencido(PlazoJustificacionVencidoException ex) {
-        return crearProblema(HttpStatus.UNPROCESSABLE_ENTITY, "Plazo de Justificación Vencido",
-                "deadline-expired", ex.getMessage());
-    }
-
-    // Error 400 - JSON mal formado, fecha inválida o valor de enumerado inexistente en el cuerpo
+    /** Error 400 - JSON mal formado, fecha inválida o valor de enumerado inexistente en el cuerpo */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ProblemDetail manejarCuerpoIlegible(HttpMessageNotReadableException ex) {
         return crearProblema(HttpStatus.BAD_REQUEST, "Solicitud No Válida", "bad-request",
                 "El cuerpo de la petición no es válido: JSON mal formado o valor no permitido en algún campo.");
     }
 
-    // Error 400 - Parámetro de la URL con un valor del tipo equivocado (p. ej. estado=XYZ)
+    /** Error 400 - Parámetro de la URL con un valor del tipo equivocado (p. ej. estado=XYZ) */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ProblemDetail manejarTipoIncorrecto(MethodArgumentTypeMismatchException ex) {
         return crearProblema(HttpStatus.BAD_REQUEST, "Solicitud No Válida", "bad-request",
                 "El valor '" + ex.getValue() + "' no es válido para el parámetro '" + ex.getName() + "'.");
     }
 
-    // Error 400 - Falta un parámetro obligatorio de la URL
+    /** Error 400 - Falta un parámetro obligatorio de la URL */
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ProblemDetail manejarParametroFaltante(MissingServletRequestParameterException ex) {
         return crearProblema(HttpStatus.BAD_REQUEST, "Solicitud No Válida", "bad-request",
                 "Falta el parámetro obligatorio '" + ex.getParameterName() + "'.");
     }
 
+    /** Construye el ProblemDetail común a todas las respuestas de error. */
     private ProblemDetail crearProblema(HttpStatus estado, String titulo, String tipoError, String detalle) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(estado, detalle);
         problem.setTitle(titulo);

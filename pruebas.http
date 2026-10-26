@@ -1,165 +1,237 @@
 ### =====================================================================
-### Pruebas de la API "Justificar faltas" (cliente HTTP de IntelliJ)
-### Requisitos: API arrancada en el puerto 8080 y datos de docs/datos-prueba.sql cargados.
-### Con la base de datos recién creada: alumnos 1 (Carlos) y 2 (Lucía);
-### faltas 1 y 2 (Carlos, ayer), 3 (Carlos, hace 10 días) y 4 (Lucía, ayer).
+### Pruebas de la API (departamentos, profesores, asignaturas, estudiantes y matrículas)
+### Se pueden lanzar con el cliente HTTP de IntelliJ, la extensión REST Client de VS Code
+### o copiando cada petición a Postman.
+### Requisitos: API arrancada en el puerto 8080 y datos de docs/datos-prueba.sql cargados
+### sobre tablas recién creadas (los IDs de las peticiones dependen de ello).
 ### Ejecutar en orden.
 ### =====================================================================
 
-### 1. Resumen de la pantalla "Mis faltas" (GET) -> 200
-GET http://localhost:8080/api/faltas/resumen?idAlumno=1
+### ---------------------------- DEPARTAMENTOS ----------------------------
 
-### 2. Faltas del alumno (GET) -> 200
-GET http://localhost:8080/api/faltas?idAlumno=1
+### 1. Listar departamentos (GET) -> 200
+GET http://localhost:8080/api/departamentos
 
-### 3. Solo las faltas pendientes de justificar (GET) -> 200
-GET http://localhost:8080/api/faltas?idAlumno=1&estado=SIN_JUSTIFICAR
+### 2. Un departamento sin profesores (GET) -> 200, totalProfesores = 0
+GET http://localhost:8080/api/departamentos/3
 
-### 4. Justificar las dos faltas de ayer en una sola petición (POST) -> 201
-POST http://localhost:8080/api/justificaciones
+### 3. Crear un departamento (POST) -> 201
+POST http://localhost:8080/api/departamentos
 Content-Type: application/json
 
 {
-  "idAlumno": 1,
-  "idsFaltas": [1, 2],
-  "motivo": "CITA_MEDICA",
-  "descripcion": "Revisión en el centro de salud",
-  "documentoAdjunto": "volante-medico.pdf"
+  "codigo": "FOL",
+  "nombre": "Formación y Orientación Laboral"
 }
 
-### 5. Las faltas 1 y 2 ya están EN_REVISION (GET) -> 200
-GET http://localhost:8080/api/faltas?idAlumno=1
-
-### 6. Historial de justificaciones del alumno (GET) -> 200
-GET http://localhost:8080/api/justificaciones?idAlumno=1
-
-### 7. Solo las pendientes (GET) -> 200
-GET http://localhost:8080/api/justificaciones?idAlumno=1&estado=PENDIENTE
-
-### 8. Una justificación concreta (GET) -> 200
-GET http://localhost:8080/api/justificaciones/1
-
-### 9. Corregir el motivo mientras está PENDIENTE (PUT) -> 200
-PUT http://localhost:8080/api/justificaciones/1
+### 4. Código repetido (POST) -> 409
+POST http://localhost:8080/api/departamentos
 Content-Type: application/json
 
 {
-  "motivo": "ENFERMEDAD",
-  "descripcion": "Fiebre y malestar general",
-  "documentoAdjunto": "informe-medico.pdf"
+  "codigo": "INF",
+  "nombre": "Otro nombre"
 }
 
-### 10. El tutor aprueba la justificación 1 (PUT) -> 200 (la falta 1 pasa a JUSTIFICADA)
-PUT http://localhost:8080/api/justificaciones/1/resolucion
+### 5. Falta el nombre (POST) -> 400
+POST http://localhost:8080/api/departamentos
 Content-Type: application/json
 
 {
-  "estado": "APROBADA",
-  "comentarioRevision": "Justificante correcto"
+  "codigo": "XXX",
+  "nombre": "  "
 }
 
-### 11. El tutor rechaza la justificación 2 (PUT) -> 200 (la falta 2 vuelve a SIN_JUSTIFICAR)
-PUT http://localhost:8080/api/justificaciones/2/resolucion
+### 6. Departamento inexistente (GET) -> 404
+GET http://localhost:8080/api/departamentos/999
+
+### 7. No se puede borrar un departamento con profesores (DELETE) -> 409
+DELETE http://localhost:8080/api/departamentos/1
+
+### ----------------------------- PROFESORES ------------------------------
+
+### 8. Profesores del departamento de Informática (GET) -> 200
+GET http://localhost:8080/api/profesores?idDepartamento=1
+
+### 9. Profesor sin departamento: es obligatorio (POST) -> 400
+POST http://localhost:8080/api/profesores
 Content-Type: application/json
 
 {
-  "estado": "RECHAZADA",
-  "comentarioRevision": "El justificante no corresponde a esa fecha"
+  "dni": "56789012K",
+  "nombre": "Ana Ruiz"
 }
 
-### 12. Volver a justificar la falta 2 tras el rechazo (POST) -> 201
-POST http://localhost:8080/api/justificaciones
+### 10. Departamento inexistente (POST) -> 404
+POST http://localhost:8080/api/profesores
 Content-Type: application/json
 
 {
-  "idAlumno": 1,
-  "idsFaltas": [2],
-  "motivo": "OTRO",
-  "descripcion": "Adjunto el justificante correcto",
-  "documentoAdjunto": "justificante-correcto.pdf"
+  "dni": "56789012K",
+  "nombre": "Ana Ruiz",
+  "idDepartamento": 999
 }
 
-### 13. Retirar la nueva justificación (id 3) mientras está PENDIENTE (DELETE) -> 204
-DELETE http://localhost:8080/api/justificaciones/3
-
-### =====================================================================
-### Casos de error
-### =====================================================================
-
-### 14. Falta fuera de plazo (POST) -> 422 Plazo de Justificación Vencido
-POST http://localhost:8080/api/justificaciones
+### 11. Crear un profesor en el departamento 3 (POST) -> 201
+POST http://localhost:8080/api/profesores
 Content-Type: application/json
 
 {
-  "idAlumno": 1,
-  "idsFaltas": [3],
-  "motivo": "ENFERMEDAD"
+  "dni": "56789012K",
+  "nombre": "Ana Ruiz",
+  "idDepartamento": 3
 }
 
-### 15. Falta ya justificada (POST) -> 409 Conflicto de Datos
-POST http://localhost:8080/api/justificaciones
+### 12. DNI repetido (POST) -> 409
+POST http://localhost:8080/api/profesores
 Content-Type: application/json
 
 {
-  "idAlumno": 1,
-  "idsFaltas": [1],
-  "motivo": "ENFERMEDAD"
+  "dni": "12345678Z",
+  "nombre": "Otro Profesor",
+  "idDepartamento": 1
 }
 
-### 16. Falta de otro alumno (POST) -> 400 Solicitud No Válida
-POST http://localhost:8080/api/justificaciones
+### 13. DNI con formato incorrecto (POST) -> 400
+POST http://localhost:8080/api/profesores
 Content-Type: application/json
 
 {
-  "idAlumno": 1,
-  "idsFaltas": [4],
-  "motivo": "ENFERMEDAD"
+  "dni": "1234",
+  "nombre": "Otro Profesor",
+  "idDepartamento": 1
 }
 
-### 17. Motivo OTRO sin descripción (POST) -> 400 Solicitud No Válida
-POST http://localhost:8080/api/justificaciones
+### 14. Cambiar a Laura de departamento (PUT) -> 200
+PUT http://localhost:8080/api/profesores/4
 Content-Type: application/json
 
 {
-  "idAlumno": 1,
-  "idsFaltas": [2],
-  "motivo": "OTRO"
+  "dni": "45678901G",
+  "nombre": "Laura Ortiz Vega",
+  "idDepartamento": 2
 }
 
-### 18. Motivo que no existe en el catálogo (POST) -> 400 Solicitud No Válida
-POST http://localhost:8080/api/justificaciones
+### 15. No se puede borrar a un profesor que imparte asignaturas (DELETE) -> 409
+DELETE http://localhost:8080/api/profesores/1
+
+### ----------------------------- ASIGNATURAS -----------------------------
+
+### 16. Asignaturas inactivas, sin matriculados (GET) -> 200, solo MAT1
+GET http://localhost:8080/api/asignaturas?activa=false
+
+### 17. Asignaturas de Regino (GET) -> 200, DIW y DWS
+GET http://localhost:8080/api/asignaturas?idProfesor=1
+
+### 18. Asignatura con matriculados: activa y nota media (GET) -> 200
+GET http://localhost:8080/api/asignaturas/1
+
+### 19. Crear una asignatura (POST) -> 201, nace inactiva (id 5)
+POST http://localhost:8080/api/asignaturas
 Content-Type: application/json
 
 {
-  "idAlumno": 1,
-  "idsFaltas": [2],
-  "motivo": "ME_DIO_PEREZA"
+  "codigo": "DAW",
+  "nombre": "Despliegue de Aplicaciones Web",
+  "idProfesor": 4
 }
 
-### 19. Falta inexistente (POST) -> 404 Recurso No Encontrado
-POST http://localhost:8080/api/justificaciones
+### 20. Asignatura sin profesor: es obligatorio (POST) -> 400
+POST http://localhost:8080/api/asignaturas
 Content-Type: application/json
 
 {
-  "idAlumno": 1,
-  "idsFaltas": [999],
-  "motivo": "ENFERMEDAD"
+  "codigo": "EIE",
+  "nombre": "Empresa e Iniciativa Emprendedora"
 }
 
-### 20. Alumno inexistente (GET) -> 404 Recurso No Encontrado
-GET http://localhost:8080/api/faltas?idAlumno=999
+### ----------------------------- ESTUDIANTES -----------------------------
 
-### 21. Filtro con un estado que no existe (GET) -> 400 Solicitud No Válida
-GET http://localhost:8080/api/faltas?idAlumno=1&estado=XYZ
+### 21. Listar estudiantes (GET) -> 200
+GET http://localhost:8080/api/estudiantes
 
-### 22. Retirar una justificación ya resuelta (DELETE) -> 409 Conflicto de Datos
-DELETE http://localhost:8080/api/justificaciones/1
-
-### 23. Resolver una justificación ya resuelta (PUT) -> 409 Conflicto de Datos
-PUT http://localhost:8080/api/justificaciones/1/resolucion
+### 22. Crear un estudiante sin matrículas (POST) -> 201
+POST http://localhost:8080/api/estudiantes
 Content-Type: application/json
 
 {
-  "estado": "RECHAZADA",
-  "comentarioRevision": "Cambio de opinión"
+  "dni": "66666666D",
+  "nombre": "Elena Soto Prieto"
 }
+
+### ----------------------------- MATRÍCULAS ------------------------------
+
+### 23. Matricular a Sergio (3) en la asignatura inactiva DAW (5) (POST) -> 201 (matrícula 6)
+POST http://localhost:8080/api/matriculas
+Content-Type: application/json
+
+{
+  "idEstudiante": 3,
+  "idAsignatura": 5,
+  "fechaMatriculacion": "2026-10-20"
+}
+
+### 24. La asignatura 5 ahora está activa con 1 matriculado (GET) -> 200
+GET http://localhost:8080/api/asignaturas/5
+
+### 25. Matricularlo otra vez (POST) -> 409
+POST http://localhost:8080/api/matriculas
+Content-Type: application/json
+
+{
+  "idEstudiante": 3,
+  "idAsignatura": 5
+}
+
+### 26. Fecha de matriculación futura (POST) -> 400
+POST http://localhost:8080/api/matriculas
+Content-Type: application/json
+
+{
+  "idEstudiante": 3,
+  "idAsignatura": 4,
+  "fechaMatriculacion": "2099-01-01"
+}
+
+### 27. Estudiante inexistente (POST) -> 404
+POST http://localhost:8080/api/matriculas
+Content-Type: application/json
+
+{
+  "idEstudiante": 999,
+  "idAsignatura": 5
+}
+
+### 28. Poner la nota final (PUT) -> 200
+PUT http://localhost:8080/api/matriculas/6/nota
+Content-Type: application/json
+
+{
+  "notaFinal": 8.75
+}
+
+### 29. Nota fuera de rango (PUT) -> 400
+PUT http://localhost:8080/api/matriculas/6/nota
+Content-Type: application/json
+
+{
+  "notaFinal": 11
+}
+
+### 30. Matrículas de Lucía (GET) -> 200, tres matrículas
+GET http://localhost:8080/api/matriculas?idEstudiante=2
+
+### 31. Matriculados en DWS (GET) -> 200, Carlos y Lucía
+GET http://localhost:8080/api/matriculas?idAsignatura=1
+
+### 32. No se puede borrar un estudiante con matrículas (DELETE) -> 409
+DELETE http://localhost:8080/api/estudiantes/1
+
+### 33. Anular la única matrícula de DAW (DELETE) -> 204
+DELETE http://localhost:8080/api/matriculas/6
+
+### 34. La asignatura 5 vuelve a estar inactiva (GET) -> 200, activa = false
+GET http://localhost:8080/api/asignaturas/5
+
+### 35. Ahora sí se puede borrar la asignatura sin matrículas (DELETE) -> 204
+DELETE http://localhost:8080/api/asignaturas/5

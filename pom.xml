@@ -14,7 +14,7 @@
     <artifactId>apicrm</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>apicrm</name>
-    <description>API REST del CRM de Altair: funcionalidad "Justificar faltas" (vista alumnado)</description>
+    <description>API REST del CRM de Altair: departamentos, profesores, asignaturas, estudiantes y matrículas (UT5)</description>
 
     <properties>
         <java.version>25</java.version>
